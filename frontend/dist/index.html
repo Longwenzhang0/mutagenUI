@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mutagen Manager</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div id="sidebar-header" style="--wails-draggable:drag">
+        <span class="app-title">Mutagen</span>
+      </div>
+      <div id="search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-box" type="text" placeholder="搜索会话" autocomplete="off" spellcheck="false" />
+        <button id="search-clear" class="hidden" type="button" title="清除">×</button>
+      </div>
+      <div id="sidebar-toolbar">
+        <div id="sort-seg" class="segmented" title="排序方式">
+          <button type="button" data-mode="manual" class="active">手动</button>
+          <button type="button" data-mode="name">名称</button>
+          <button type="button" data-mode="status">状态</button>
+        </div>
+        <button id="btn-add-group" class="icon-btn toolbar-icon" title="新建分组">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+        </button>
+      </div>
+      <ul id="session-list"></ul>
+      <div id="sidebar-footer">
+        <button id="btn-new" class="primary">＋ 新建会话</button>
+        <button id="btn-help" class="icon-btn" title="使用说明">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </button>
+        <button id="btn-settings" class="icon-btn" title="设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <main id="main">
+      <div id="main-drag" style="--wails-draggable:drag"></div>
+      <div id="empty-state">
+        <p id="empty-message">没有选中的会话</p>
+      </div>
+      <div id="detail" class="hidden">
+        <header id="detail-header">
+          <h1 id="detail-name"></h1>
+          <span id="detail-status" class="badge"></span>
+        </header>
+        <section class="detail-grid">
+          <div class="card">
+            <h3>本地 (alpha)</h3>
+            <p id="detail-alpha" class="mono"></p>
+            <span id="detail-alpha-conn" class="conn"></span>
+          </div>
+          <div class="card">
+            <h3>远程 (beta)</h3>
+            <p id="detail-beta" class="mono"></p>
+            <span id="detail-beta-conn" class="conn"></span>
+          </div>
+        </section>
+        <section id="detail-counters">
+          <span id="detail-conflicts"></span>
+          <span id="detail-problems"></span>
+        </section>
+        <p id="detail-error" class="error-text hidden"></p>
+        <section id="detail-issues" class="hidden">
+          <h3 class="issues-title">问题与冲突</h3>
+          <ul id="issue-list"></ul>
+        </section>
+        <section id="detail-actions">
+          <button id="btn-pause">暂停</button>
+          <button id="btn-resume">恢复</button>
+          <button id="btn-flush">立即同步</button>
+          <button id="btn-reset">重置</button>
+          <button id="btn-session-preset">存为预设</button>
+          <button id="btn-terminate" class="danger">终止</button>
+        </section>
+        <section id="pic-section">
+          <div class="pic-head">
+            <h3>图片速传 <span class="small">复制到 mutagen_pic/ 并同步，生成远端路径</span></h3>
+            <div class="segmented pic-seg">
+              <button type="button" data-pmode="abs" class="active">绝对路径</button>
+              <button type="button" data-pmode="rel">相对路径</button>
+            </div>
+          </div>
+          <div id="drop-zone" style="--wails-drop-target:drop">
+            <p>把图片拖到这里、<span id="paste-key">⌘V</span> 粘贴截图，或 <button id="btn-pick-images" type="button" class="link-btn">选择图片…</button></p>
+          </div>
+          <p id="pic-status" class="small hidden"></p>
+          <div id="pic-bar" class="hidden"><div id="pic-bar-fill"></div></div>
+          <div id="pic-results" class="hidden">
+            <div class="pic-results-head">
+              <span class="small">远端路径（点行复制单个）</span>
+              <button id="btn-copy-all" type="button">复制全部</button>
+            </div>
+            <ul id="pic-list"></ul>
+          </div>
+        </section>
+
+        <details id="raw-details">
+          <summary>原始状态 (JSON)</summary>
+          <pre id="detail-raw" class="mono"></pre>
+        </details>
+      </div>
+    </main>
+  </div>
+
+  <!-- 新建会话弹窗 -->
+  <div id="modal-create" class="modal hidden">
+    <div class="modal-box">
+      <h2>新建同步会话</h2>
+      <label>从预设填充
+        <select id="create-preset"><option value="">（不使用预设）</option></select>
+      </label>
+      <label>会话名称
+        <input id="create-name" placeholder="例如 my-project" />
+      </label>
+      <label>本地路径 (alpha)
+        <div class="row">
+          <input id="create-alpha" placeholder="/Users/you/code/project" />
+          <button id="btn-pick-dir" type="button">浏览…</button>
+        </div>
+      </label>
+      <label>远程路径 (beta)
+        <input id="create-beta" placeholder="user@host:port:/remote/path" />
+      </label>
+      <label>加入分组
+        <select id="create-group">
+          <option value="">（不分组）</option>
+        </select>
+      </label>
+      <label>同步模式
+        <select id="create-mode">
+          <option value="two-way-resolved">two-way-resolved（双向，冲突以本地为准）</option>
+          <option value="two-way-safe">two-way-safe（双向，冲突需手动处理）</option>
+          <option value="one-way-safe">one-way-safe（单向，保护远端多余文件）</option>
+          <option value="one-way-replica">one-way-replica（单向镜像）</option>
+        </select>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="create-ignore-vcs" checked /> 忽略版本控制目录 (.git 等)
+      </label>
+      <label>忽略规则（每行一条）
+        <textarea id="create-ignores" rows="4" placeholder=".DS_Store&#10;node_modules/&#10;.idea/"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button id="btn-save-preset" type="button">存为预设</button>
+        <span class="spacer"></span>
+        <button id="btn-create-cancel" type="button">取消</button>
+        <button id="btn-create-ok" class="primary" type="button">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div id="modal-settings" class="modal hidden">
+    <div class="modal-box">
+      <h2>设置</h2>
+      <p id="settings-info" class="mono small"></p>
+      <label>mutagen 二进制路径（留空自动检测）
+        <input id="settings-path" placeholder="/opt/homebrew/bin/mutagen" />
+      </label>
+      <h3>预设管理</h3>
+      <ul id="preset-list"></ul>
+      <div class="modal-actions">
+        <button id="btn-settings-cancel" type="button">取消</button>
+        <button id="btn-settings-ok" class="primary" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通用文本输入弹窗（WKWebView 不支持 window.prompt） -->
+  <div id="modal-input" class="modal hidden">
+    <div class="modal-box narrow">
+      <h2 id="input-title"></h2>
+      <input id="input-field" autocomplete="off" />
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button id="btn-input-cancel" type="button">取消</button>
+        <button id="btn-input-ok" class="primary" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SSH 认证弹窗 -->
+  <div id="modal-prompt" class="modal hidden">
+    <div class="modal-box prompt-box">
+      <div class="prompt-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h2>SSH 认证</h2>
+      <p id="prompt-text" class="prompt-text mono"></p>
+      <p id="prompt-retry" class="prompt-retry hidden">密码未通过验证，请重新输入</p>
+      <input id="prompt-input" type="password" autocomplete="off" placeholder="请输入密码" />
+      <label class="checkbox-label" id="prompt-save-row">
+        <input type="checkbox" id="prompt-save" /> 保存到 macOS 钥匙串（下次自动填充）
+      </label>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button id="btn-prompt-cancel" type="button">取消</button>
+        <button id="btn-prompt-ok" class="primary" type="button">连接</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 使用说明弹窗 -->
+  <div id="modal-help" class="modal hidden">
+    <div class="modal-box help-box">
+      <div class="help-header">
+        <h2>使用说明 · mutagen 命令对照</h2>
+        <button id="btn-help-close" class="close-x" type="button" title="关闭 (Esc)">×</button>
+      </div>
+      <div class="help-content">
+      <p class="small">本应用是 mutagen 命令行的图形界面。每个功能对应的原始命令如下，二者可以混用（终端和界面操作的是同一个 mutagen 守护进程和同一份会话）。</p>
+
+      <h3>会话管理命令</h3>
+      <table class="help-table">
+        <tr><th>mutagen 命令</th><th>作用</th><th>本应用对应</th></tr>
+        <tr><td class="mono">mutagen sync create [flags] &lt;alpha&gt; &lt;beta&gt;</td><td>创建并启动同步会话，alpha/beta 为两端路径</td><td>「新建会话」表单</td></tr>
+        <tr><td class="mono">mutagen sync list [--long]</td><td>列出所有会话及状态</td><td>侧边栏列表（每 2 秒自动刷新）</td></tr>
+        <tr><td class="mono">mutagen sync monitor &lt;会话&gt;</td><td>终端里实时滚动显示状态</td><td>详情面板（轮询刷新）</td></tr>
+        <tr><td class="mono">mutagen sync pause &lt;会话&gt;</td><td>暂停同步（可恢复）</td><td>「暂停」按钮</td></tr>
+        <tr><td class="mono">mutagen sync resume &lt;会话&gt;</td><td>恢复同步（重建 SSH 连接）</td><td>「恢复」按钮</td></tr>
+        <tr><td class="mono">mutagen sync flush &lt;会话&gt;</td><td>立即执行一轮完整同步并等待完成</td><td>「立即同步」按钮</td></tr>
+        <tr><td class="mono">mutagen sync reset &lt;会话&gt;</td><td>清空同步历史，下轮重新完整对比（文件不动）</td><td>「重置」按钮</td></tr>
+        <tr><td class="mono">mutagen sync terminate &lt;会话&gt;</td><td>删除会话（停止同步、移除记录，文件不动，不可恢复）</td><td>「终止」按钮</td></tr>
+        <tr><td class="mono">mutagen daemon start / stop</td><td>启动/停止守护进程（所有会话由它管理）</td><td>应用启动时自动拉起</td></tr>
+        <tr><td class="mono">mutagen project start -f mutagen.yml</td><td>按 YAML 配置文件批量创建会话</td><td>由「预设」功能替代</td></tr>
+      </table>
+
+      <h3>create 常用参数</h3>
+      <table class="help-table">
+        <tr><th>参数</th><th>作用</th><th>本应用对应</th></tr>
+        <tr><td class="mono">--name &lt;名称&gt;</td><td>给会话命名（否则只有随机 ID）</td><td>「会话名称」输入框</td></tr>
+        <tr><td class="mono">--sync-mode &lt;模式&gt;</td><td>同步模式，见下表</td><td>「同步模式」下拉框</td></tr>
+        <tr><td class="mono">--ignore &lt;模式&gt;</td><td>忽略规则，可重复多次</td><td>「忽略规则」文本域（每行一条）</td></tr>
+        <tr><td class="mono">--ignore-vcs</td><td>忽略 .git/.svn 等版本控制目录</td><td>对应复选框</td></tr>
+      </table>
+
+      <h3>四种同步模式</h3>
+      <table class="help-table">
+        <tr><th>模式</th><th>行为</th></tr>
+        <tr><td class="mono">two-way-safe</td><td>双向同步；两端同时改了同一文件时标记冲突、两边都不动，需手动处理</td></tr>
+        <tr><td class="mono">two-way-resolved</td><td>双向同步；冲突时 alpha（本地）自动获胜覆盖 beta</td></tr>
+        <tr><td class="mono">one-way-safe</td><td>仅 alpha → beta 单向；beta 上的独有内容不会被删除</td></tr>
+        <tr><td class="mono">one-way-replica</td><td>alpha → beta 精确镜像；beta 上多余的内容会被删除</td></tr>
+      </table>
+
+      <h3>路径 (URL) 格式</h3>
+      <table class="help-table">
+        <tr><th>格式</th><th>示例</th></tr>
+        <tr><td>本地路径</td><td class="mono">/Users/you/code/project</td></tr>
+        <tr><td>SSH（端口可省略，默认 22）</td><td class="mono">user@host:2222:/remote/path</td></tr>
+        <tr><td>Docker 容器</td><td class="mono">docker://容器名/path（本应用未做专门支持，可直接填写）</td></tr>
+      </table>
+
+      <h3>忽略规则语法</h3>
+      <p class="small">与 .gitignore 类似：<span class="mono">*</span> 和 <span class="mono">?</span> 通配、<span class="mono">**</span> 跨层级匹配；
+        以 <span class="mono">/</span> 结尾只匹配目录；以 <span class="mono">!</span> 开头取消先前的忽略。</p>
+
+      <h3>本应用的补充说明</h3>
+      <p class="small">SSH 密码可勾选存入 macOS 钥匙串（服务名 MutagenUI-SSH，可在「钥匙串访问」App 中查看/删除），之后自动填充；密码验证失败会重新弹窗。
+        后台自动重连时无法弹窗，若网络闪断导致会话断连，点「恢复」或「立即同步」重新认证即可。
+        未覆盖的功能（如 <span class="mono">mutagen forward</span> 端口转发）请使用终端。</p>
+      <p class="small">「图片速传」把图片复制到会话本地目录的 <span class="mono">mutagen_pic/</span> 下并执行 flush，
+        同步完成后生成远端路径，可直接粘贴给远端机器上的 Claude 等工具读取。
+        注意别把 <span class="mono">mutagen_pic/</span> 加进忽略规则，否则图片不会被同步。</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <script src="/wails/ipc.js"></script>
+  <script src="/wails/runtime.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

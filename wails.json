@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "MutagenUI",
+  "outputfilename": "MutagenUI",
+  "assetdir": "frontend/dist",
+  "reloaddirs": "frontend/dist",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "info": {
+    "productName": "Mutagen Manager",
+    "productVersion": "0.1.0"
+  }
+}

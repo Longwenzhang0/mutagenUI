@@ -1,0 +1,17 @@
+# 构建产物
+build/bin/
+
+# 个人同步配置（含服务器地址），勿提交
+mutagen.yml
+mutagen.yml.lock
+mutagen_pic/
+
+# 本地工具配置
+.claude/
+.DS_Store
+.idea/
+
+# 内置的 mutagen 二进制：不入库，构建前执行 ./fetch-assets.sh 下载
+internal/bundled/assets/
+
+frontend/node_modules/
