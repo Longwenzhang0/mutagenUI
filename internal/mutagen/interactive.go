@@ -48,6 +48,9 @@ var (
 	// e.g. "Are you sure you want to continue connecting (yes/no/[fingerprint])?"
 	// and ssh's retry form "Please type 'yes', 'no' or the fingerprint:"
 	yesNoRe = regexp.MustCompile(`\(yes/no(/\[fingerprint\])?\)\??\s*$|(?i:type 'yes'.*:\s*$)`)
+	// ssh 拒绝上一次密码后的提示，如 "Permission denied, please try again." /
+	// "Bad passphrase, try again"。据此区分"密码错了重问"和"新连接首次询问"。
+	rejectRe = regexp.MustCompile(`(?i)permission denied|try again|authentication failed`)
 )
 
 // runInteractive executes mutagen under a pseudo-terminal so that its SSH
@@ -73,12 +76,18 @@ func (c *Client) runInteractive(args ...string) (string, error) {
 	var line strings.Builder
 	buf := make([]byte, 4096)
 	maskedAttempts := 0
+	// mutagen 一次命令会开多条 SSH 连接（连接代理/探测/拷贝/启动），每条都问
+	// 一遍密码。缓存本次运行内首个成功输入的答案，相同提示自动复用；只有
+	// 输出里出现 ssh 的拒绝提示（rejectRe）才重新询问用户。
+	var cachedPrompt, cachedAnswer string
+	var sinceAnswer strings.Builder
 	for {
 		n, rerr := p.Read(buf)
 		if n > 0 {
 			chunk := string(buf[:n])
 			dbg("out: %q", chunk)
 			all.WriteString(chunk)
+			sinceAnswer.WriteString(chunk)
 			for _, r := range chunk {
 				if r == '\n' || r == '\r' {
 					line.Reset()
@@ -89,20 +98,36 @@ func (c *Client) runInteractive(args ...string) (string, error) {
 			cur := line.String()
 			masked, isPrompt := classifyPrompt(cur)
 			if isPrompt {
-				attempt := 1
-				if masked {
-					maskedAttempts++
-					attempt = maskedAttempts
+				promptText := strings.TrimSpace(stripANSI(cur))
+				rejected := answerRejected(stripANSI(sinceAnswer.String()))
+				sinceAnswer.Reset()
+				answer := ""
+				if masked && !rejected && cachedAnswer != "" && promptText == cachedPrompt {
+					dbg("prompt reusing cached answer: %q", promptText)
+					answer = cachedAnswer
+				} else {
+					attempt := 1
+					if masked {
+						if rejected {
+							cachedAnswer = ""
+						}
+						maskedAttempts++
+						attempt = maskedAttempts
+					}
+					dbg("prompt detected (masked=%v attempt=%d rejected=%v): %q", masked, attempt, rejected, promptText)
+					ans, ok := c.Prompter(promptText, masked, attempt)
+					if !ok {
+						dbg("prompt cancelled by user")
+						_ = p.Kill()
+						_ = p.Wait()
+						return "", fmt.Errorf("已取消")
+					}
+					dbg("prompt answered (len=%d)", len(ans))
+					answer = ans
+					if masked {
+						cachedPrompt, cachedAnswer = promptText, answer
+					}
 				}
-				dbg("prompt detected (masked=%v attempt=%d): %q", masked, attempt, stripANSI(cur))
-				answer, ok := c.Prompter(strings.TrimSpace(stripANSI(cur)), masked, attempt)
-				if !ok {
-					dbg("prompt cancelled by user")
-					_ = p.Kill()
-					_ = p.Wait()
-					return "", fmt.Errorf("已取消")
-				}
-				dbg("prompt answered (len=%d)", len(answer))
 				if _, werr := p.Write([]byte(answer + "\n")); werr != nil {
 					dbg("write answer failed: %v", werr)
 					break
@@ -124,6 +149,13 @@ func (c *Client) runInteractive(args ...string) (string, error) {
 		return "", fmt.Errorf("%s", tailLines(stripANSI(out), 6))
 	}
 	return out, nil
+}
+
+// answerRejected reports whether the output since the last answered prompt
+// indicates ssh rejected that answer (as opposed to a new connection asking
+// for the first time).
+func answerRejected(since string) bool {
+	return rejectRe.MatchString(since)
 }
 
 func classifyPrompt(line string) (masked, isPrompt bool) {

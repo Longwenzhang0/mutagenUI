@@ -50,6 +50,24 @@ func TestClassifyPrompt(t *testing.T) {
 	}
 }
 
+func TestAnswerRejected(t *testing.T) {
+	cases := []struct {
+		since string
+		want  bool
+	}{
+		{"\r\nPermission denied, please try again.\r\nuser@1.2.3.4's password: ", true},
+		{"Bad passphrase, try again for '/home/u/.ssh/id_ed25519': ", true},
+		// 新连接的首次询问：上一条连接正常结束后进入下一阶段
+		{"\r\nProbing endpoint (POSIX)...                    \r\nuser@1.2.3.4's password: ", false},
+		{"\rExtracting agent...\rCopying agent...\r\nuser@1.2.3.4's password: ", false},
+	}
+	for _, c := range cases {
+		if got := answerRejected(c.since); got != c.want {
+			t.Fatalf("answerRejected(%q) = %v, want %v", c.since, got, c.want)
+		}
+	}
+}
+
 func TestExtractConfig(t *testing.T) {
 	cases := []string{
 		// top-level layout
