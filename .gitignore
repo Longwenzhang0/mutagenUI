@@ -5,6 +5,7 @@ build/bin/
 mutagen.yml
 mutagen.yml.lock
 mutagen_pic/
+github操作命令备忘.txt
 
 # 本地工具配置
 .claude/

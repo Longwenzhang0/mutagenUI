@@ -383,8 +383,11 @@ body.drag-cursor, body.drag-cursor * { cursor: grabbing !important; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 6px;
 }
+.pic-results-head .small { flex: 1; line-height: 1.5; }
+.pic-results-head .small b { color: var(--text); font-weight: 600; }
 .pic-results-head button { font-size: 13px; padding: 7px 16px; }
 #pic-list { list-style: none; }
 #pic-list li {
@@ -419,6 +422,8 @@ body.drag-cursor, body.drag-cursor * { cursor: grabbing !important; }
   user-select: text;
 }
 .pic-copied { color: var(--green); font-size: 11px; flex-shrink: 0; }
+/* 未复制过的行悬停时给出动作提示，避免把路径当成只读的传输记录 */
+#pic-list li:hover .pic-copied:empty::before { content: "点击复制"; color: var(--text-dim); }
 
 #raw-details summary { cursor: pointer; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
 #detail-raw {

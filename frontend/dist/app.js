@@ -716,7 +716,7 @@ async function runTransfer(invoke) {
   try {
     const res = await invoke(id);
     picResults[id] = res;
-    toast(`已同步 ${res.length} 张图片，路径可复制`);
+    toast(`已同步 ${res.length} 张图片，复制路径可粘贴给远端工具读图`);
   } catch (err) {
     showError(err);
   } finally {
@@ -777,7 +777,7 @@ function renderPicResults(s) {
     const p = document.createElement("span");
     p.className = "pic-path";
     p.textContent = picPath(img);
-    p.title = picPath(img);
+    p.title = `远端机器上的路径：${picPath(img)}\n点击复制，粘贴给远端工具即可读图`;
     const mark = document.createElement("span");
     mark.className = "pic-copied";
     li.append(name, p, mark);

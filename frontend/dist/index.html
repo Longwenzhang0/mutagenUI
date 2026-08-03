@@ -80,7 +80,7 @@
         </section>
         <section id="pic-section">
           <div class="pic-head">
-            <h3>图片速传 <span class="small">复制到 mutagen_pic/ 并同步，生成远端路径</span></h3>
+            <h3>图片速传 <span class="small">同步到远端 mutagen_pic/，生成给远端工具引用的图片路径</span></h3>
             <div class="segmented pic-seg">
               <button type="button" data-pmode="abs" class="active">绝对路径</button>
               <button type="button" data-pmode="rel">相对路径</button>
@@ -93,7 +93,8 @@
           <div id="pic-bar" class="hidden"><div id="pic-bar-fill"></div></div>
           <div id="pic-results" class="hidden">
             <div class="pic-results-head">
-              <span class="small">远端路径（点行复制单个）</span>
+              <span class="small">✓ 图片已同步到远端。下面是它在<b>远端机器</b>上的路径，
+                粘贴给远端的 Claude 等工具即可直接读图（点行复制）</span>
               <button id="btn-copy-all" type="button">复制全部</button>
             </div>
             <ul id="pic-list"></ul>
