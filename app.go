@@ -31,6 +31,15 @@ type App struct {
 	promptMu      sync.Mutex
 	promptSeq     int
 	pendingPrompt map[string]chan promptAnswer
+
+	// 自动暂停兜底：daemon 对断连会话每 15 秒无限重连，密码认证的会话
+	// 在后台重连时拿不到密码，会在服务器上刷出大量登录失败记录（还可能
+	// 触发 fail2ban）。这里跟踪每个会话进入断连状态的时间，超过阈值就
+	// 自动 pause。interactiveOps > 0 表示用户正在创建/恢复会话（可能正
+	// 在输密码），期间不计时。
+	autoPauseMu     sync.Mutex
+	connectingSince map[string]time.Time
+	interactiveOps  int
 }
 
 type promptAnswer struct {
@@ -192,8 +201,93 @@ func (a *App) GetMutagenInfo() MutagenInfo {
 	}
 }
 
+// daemon 的自动重连间隔是 15 秒（mutagen 源码 autoReconnectInterval），
+// "连续 5 次重连失败"约等于持续断连 75 秒。
+const (
+	daemonReconnectInterval = 15 * time.Second
+	autoPauseAttempts       = 5
+)
+
 func (a *App) ListSessions() ([]mutagen.Session, error) {
-	return a.client.List()
+	sessions, err := a.client.List()
+	if err != nil {
+		return nil, err
+	}
+	a.autoPauseStuck(sessions)
+	return sessions, nil
+}
+
+// autoPauseStuck pauses sessions that have stayed disconnected longer than
+// autoPauseAttempts reconnect cycles. Driven by the frontend's 2s poll.
+func (a *App) autoPauseStuck(sessions []mutagen.Session) {
+	a.autoPauseMu.Lock()
+	defer a.autoPauseMu.Unlock()
+	if a.interactiveOps > 0 {
+		a.connectingSince = nil
+		return
+	}
+	if a.connectingSince == nil {
+		a.connectingSince = make(map[string]time.Time)
+	}
+	now := time.Now()
+	seen := make(map[string]bool, len(sessions))
+	for _, s := range sessions {
+		if s.Identifier == "" {
+			continue
+		}
+		seen[s.Identifier] = true
+		disconnected := !s.Paused && (!s.AlphaConnected || !s.BetaConnected)
+		if !disconnected {
+			delete(a.connectingSince, s.Identifier)
+			continue
+		}
+		since, ok := a.connectingSince[s.Identifier]
+		if !ok {
+			a.connectingSince[s.Identifier] = now
+			continue
+		}
+		if now.Sub(since) < autoPauseAttempts*daemonReconnectInterval {
+			continue
+		}
+		// 先移除计时，pause 需要数百毫秒，避免下一轮轮询重复触发。
+		delete(a.connectingSince, s.Identifier)
+		go a.pauseStuckSession(s)
+	}
+	// 已不存在的会话（被 terminate 等）清掉计时。
+	for id := range a.connectingSince {
+		if !seen[id] {
+			delete(a.connectingSince, id)
+		}
+	}
+}
+
+func (a *App) pauseStuckSession(s mutagen.Session) {
+	name := s.Name
+	if name == "" {
+		name = s.Identifier
+	}
+	if err := a.client.Pause(s.Identifier); err != nil {
+		runtime.EventsEmit(a.ctx, "toast-error",
+			fmt.Sprintf("会话「%s」持续重连失败，自动暂停时出错: %v", name, err))
+		return
+	}
+	runtime.EventsEmit(a.ctx, "toast-error",
+		fmt.Sprintf("会话「%s」连续 %d 次重连失败，已自动暂停。请检查 SSH 连接后手动恢复", name, autoPauseAttempts))
+}
+
+// beginInteractive/endInteractive 包住可能弹 SSH 密码框的命令，期间暂停
+// 自动暂停计时；结束后重新计时，给刚恢复的会话完整的重连窗口。
+func (a *App) beginInteractive() {
+	a.autoPauseMu.Lock()
+	a.interactiveOps++
+	a.autoPauseMu.Unlock()
+}
+
+func (a *App) endInteractive() {
+	a.autoPauseMu.Lock()
+	a.interactiveOps--
+	a.connectingSince = nil
+	a.autoPauseMu.Unlock()
 }
 
 func (a *App) CreateSession(spec mutagen.CreateSpec) error {
@@ -208,13 +302,31 @@ func (a *App) CreateSession(spec mutagen.CreateSpec) error {
 			}
 		}
 	}
+	a.beginInteractive()
+	defer a.endInteractive()
 	return a.client.Create(spec)
 }
 
-func (a *App) PauseSession(name string) error     { return a.client.Pause(name) }
-func (a *App) ResumeSession(name string) error    { return a.client.Resume(name) }
-func (a *App) FlushSession(name string) error     { return a.client.Flush(name) }
-func (a *App) ResetSession(name string) error     { return a.client.Reset(name) }
+func (a *App) PauseSession(name string) error { return a.client.Pause(name) }
+
+func (a *App) ResumeSession(name string) error {
+	a.beginInteractive()
+	defer a.endInteractive()
+	return a.client.Resume(name)
+}
+
+func (a *App) FlushSession(name string) error {
+	a.beginInteractive()
+	defer a.endInteractive()
+	return a.client.Flush(name)
+}
+
+func (a *App) ResetSession(name string) error {
+	a.beginInteractive()
+	defer a.endInteractive()
+	return a.client.Reset(name)
+}
+
 func (a *App) TerminateSession(name string) error { return a.client.Terminate(name) }
 
 // SelectDirectory opens the native folder picker and returns the chosen path
